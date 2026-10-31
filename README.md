@@ -4,9 +4,11 @@
 
 BanLog 使用 AniList 获取动画资料，使用本地中文映射显示译名，通过 Supabase Auth 登录，并把追番记录和中文简介缓存保存在 Postgres。手机和电脑浏览器都可以直接使用。
 
+**在线使用：<https://banlog.netlify.app/>**
+
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![Netlify](https://img.shields.io/badge/Deploy-Netlify-00C7B7?logo=netlify&logoColor=white)](https://banlog.netlify.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 功能
@@ -24,7 +26,7 @@ BanLog 使用 AniList 获取动画资料，使用本地中文映射显示译名�
 
 ## 技术栈
 
-Next.js 15 App Router · React 19 · TypeScript · Tailwind CSS · Supabase Auth · Supabase Postgres · Recharts · AniList GraphQL · Vercel
+Next.js 15 App Router · React 19 · TypeScript · Tailwind CSS · Supabase Auth · Supabase Postgres · Recharts · AniList GraphQL · Netlify
 
 ## 本地启动
 
@@ -46,13 +48,13 @@ npm run dev
 
 打开 <http://localhost:3000>，注册账号后即可使用。
 
-完整的 Supabase Auth 回调配置、GitHub 推送和 Vercel 自动部署步骤见 **[DEPLOY.md](DEPLOY.md)**。
+完整的 Supabase Auth 回调配置和部署步骤见 **[DEPLOY.md](DEPLOY.md)**。
 
 ## 数据与安全
 
 - `anime_cache` 是所有登录用户共享的 AniList 元数据缓存，只允许登录用户读取；写入仅由服务端使用 `service_role` 完成。
 - `watch_records` 开启 RLS，用户只能查询、创建、修改、删除自己的记录。
-- `SUPABASE_SERVICE_ROLE_KEY` 只放在服务端/Vercel 环境变量，绝不能加 `NEXT_PUBLIC_` 前缀。
+- `SUPABASE_SERVICE_ROLE_KEY` 只放在服务端/Netlify 环境变量，绝不能加 `NEXT_PUBLIC_` 前缀。
 - AniList 列表请求保留 5 分钟内存缓存，Supabase 中文简介缓存长期复用。
 - 中文标题来自本地 [soruly/anilist-chinese](https://github.com/soruly/anilist-chinese) 映射。
 
