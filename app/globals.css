@@ -50,6 +50,15 @@
     animation: skeleton-shimmer 1.6s infinite;
     content: "";
   }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes skeleton-shimmer {

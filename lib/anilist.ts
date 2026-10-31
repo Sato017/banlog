@@ -10,7 +10,7 @@ import type { AnimeFormat } from "@/lib/formats";
 import type { AnimeItem } from "@/lib/types";
 
 const DEFAULT_ANILIST_ENDPOINT = "https://graphql.anilist.co";
-const FRESH_CACHE_TTL_MS = 10 * 60 * 1000;
+const FRESH_CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 200;
 
@@ -320,7 +320,7 @@ async function fetchOnce(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "BanLog/2.2 (local anime watch log)",
+        "User-Agent": "BanLog/3.0 (responsive web app)",
       },
       body: JSON.stringify({ query: ANILIST_QUERY, variables }),
       cache: "no-store",

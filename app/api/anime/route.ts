@@ -21,6 +21,10 @@ import {
   type PlotKey,
   type SortKey,
 } from "@/lib/filters";
+import {
+  createSupabaseAdminClient,
+  createSupabaseServerClient,
+} from "@/lib/supabase-server";
 import { attachChineseSynopses } from "@/lib/translation";
 import type { AnimeListResponse, ApiErrorBody } from "@/lib/types";
 
@@ -87,6 +91,15 @@ function mapAniListError(
 export async function GET(
   request: NextRequest,
 ): Promise<NextResponse<AnimeListResponse | ApiErrorBody>> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return jsonError(401, "请先登录。", "UNAUTHORIZED");
+  }
+
   const { searchParams } = new URL(request.url);
   const rawPage = searchParams.get("page") ?? "1";
   const rawQuery = searchParams.get("q") ?? "";
@@ -170,12 +183,16 @@ export async function GET(
       year,
       sort,
     });
-    const items = await attachChineseSynopses(pageData.items);
+    const items = await attachChineseSynopses(pageData.items, supabase);
 
-    // 列表请求返回什么就缓存什么，不逐张卡片请求详情。
-    await upsertAnimeCache(items);
+    // List responses populate the shared cache. The service-role client is
+    // required because anime_cache is read-only for authenticated users.
+    const admin = createSupabaseAdminClient();
+    await upsertAnimeCache(admin, items);
     const watchedIds = await findWatchedIds(
+      supabase,
       items.map((item) => item.id),
+      user.id,
     );
 
     const response: AnimeListResponse = {

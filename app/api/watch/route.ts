@@ -1,8 +1,9 @@
-import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
-import { USER_ID, WATCHED_STATUS } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { WATCHED_STATUS } from "@/lib/constants";
+import {
+  createSupabaseServerClient,
+} from "@/lib/supabase-server";
 import type {
   ApiErrorBody,
   WatchToggleResponse,
@@ -26,35 +27,34 @@ function jsonError(
   );
 }
 
-function isUniqueConstraintError(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
-  );
-}
-
-function isMissingRecordError(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2025"
-  );
-}
-
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<WatchToggleResponse | ApiErrorBody>> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return jsonError(401, "请先登录。", "UNAUTHORIZED");
+  }
+
   let body: unknown;
 
   try {
     body = (await request.json()) as unknown;
   } catch {
-    return jsonError(400, "请求体必须是 JSON，例如 { \"animeId\": 1 }。", "INVALID_JSON");
+    return jsonError(
+      400,
+      '请求体必须是 JSON，例如 { "animeId": 1 }。',
+      "INVALID_JSON",
+    );
   }
 
   if (!body || typeof body !== "object" || !("animeId" in body)) {
     return jsonError(
       400,
-      "缺少 animeId，请求体应为 { \"animeId\": number }。",
+      '缺少 animeId，请求体应为 { "animeId": number }。',
       "MISSING_ANIME_ID",
     );
   }
@@ -65,45 +65,45 @@ export async function POST(
     !Number.isSafeInteger(animeId) ||
     animeId <= 0
   ) {
-    return jsonError(
-      400,
-      "animeId 必须是正整数。",
-      "INVALID_ANIME_ID",
-    );
+    return jsonError(400, "animeId 必须是正整数。", "INVALID_ANIME_ID");
   }
 
   try {
-    // 只接受已缓存到数据库的动画，防止写入孤立记录。
-    const anime = await prisma.animeCache.findUnique({
-      where: { id: animeId },
-      select: { id: true },
-    });
+    // anime_cache is shared and readable by authenticated users. Requiring the
+    // row to exist prevents orphaned watch records.
+    const { data: anime, error: cacheError } = await supabase
+      .from("anime_cache")
+      .select("id")
+      .eq("id", animeId)
+      .maybeSingle();
+
+    if (cacheError) throw new Error(cacheError.message);
 
     if (!anime) {
       return jsonError(
         404,
-        "这部动画尚未进入本地缓存，请先刷新列表后重试。",
+        "这部动画尚未进入云端缓存，请先刷新列表后重试。",
         "ANIME_NOT_CACHED",
       );
     }
 
-    const existing = await prisma.watchRecord.findUnique({
-      where: {
-        userId_animeId: {
-          userId: USER_ID,
-          animeId,
-        },
-      },
-      select: { id: true },
-    });
+    const { data: existing, error: existingError } = await supabase
+      .from("watch_records")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("anime_id", animeId)
+      .maybeSingle();
+
+    if (existingError) throw new Error(existingError.message);
 
     if (existing) {
-      try {
-        await prisma.watchRecord.delete({ where: { id: existing.id } });
-      } catch (error) {
-        // 同一部动画同时被两个请求取消时，最终状态仍是“未追”。
-        if (!isMissingRecordError(error)) throw error;
-      }
+      const { error: deleteError } = await supabase
+        .from("watch_records")
+        .delete()
+        .eq("id", existing.id)
+        .eq("user_id", user.id);
+
+      if (deleteError) throw new Error(deleteError.message);
 
       return NextResponse.json(
         { watched: false },
@@ -111,18 +111,18 @@ export async function POST(
       );
     }
 
-    try {
-      await prisma.watchRecord.create({
-        data: {
-          userId: USER_ID,
-          animeId,
-          status: WATCHED_STATUS,
-        },
+    const { error: insertError } = await supabase
+      .from("watch_records")
+      .insert({
+        user_id: user.id,
+        anime_id: animeId,
+        status: WATCHED_STATUS,
       });
-    } catch (error) {
-      // 并发重复创建由 @@unique([userId, animeId]) 兜底；
-      // 唯一键冲突说明记录已存在，最终状态仍是“已追”。
-      if (!isUniqueConstraintError(error)) throw error;
+
+    // A concurrent insert hits the unique(user_id, anime_id) constraint.
+    // The final state is still "watched", so treat it as success.
+    if (insertError && insertError.code !== "23505") {
+      throw new Error(insertError.message);
     }
 
     return NextResponse.json(

@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { AnimeItem } from "@/lib/types";
 
 const DEFAULT_TRANSLATE_ENDPOINT =
@@ -63,7 +64,7 @@ async function requestTranslation(text: string): Promise<string | null> {
       headers: {
         Accept: "application/json",
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 BanLog/2.1",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 BanLog/3.0",
       },
       cache: "no-store",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -160,13 +161,14 @@ async function translateMany(
 /**
  * 把 AniList 英文简介补成中文简介。
  *
- * 1. 先读 AnimeCache.synopsisChinese，已翻译过的直接复用；
+ * 1. 先读 Supabase anime_cache.synopsis_chinese，已翻译过的直接复用；
  * 2. 只翻译缺中文的条目，并限制并发/总耗时；
  * 3. 翻译失败保持 null，前端展示英文 description；
- * 4. 调用方随后 upsert，将成功结果写入 SQLite。
+ * 4. 调用方随后 upsert，将成功结果写入 Supabase。
  */
 export async function attachChineseSynopses(
   items: AnimeItem[],
+  supabase: SupabaseClient,
 ): Promise<AnimeItem[]> {
   if (items.length === 0) return items;
 
@@ -174,25 +176,29 @@ export async function attachChineseSynopses(
   let cached = new Map<number, string>();
 
   try {
-    const rows = await prisma.animeCache.findMany({
-      where: {
-        id: { in: ids },
-        synopsisChinese: { not: null },
-      },
-      select: { id: true, synopsisChinese: true },
-    });
+    const { data, error } = await supabase
+      .from("anime_cache")
+      .select("id, synopsis_chinese")
+      .in("id", ids)
+      .not("synopsis_chinese", "is", null)
+      .returns<
+        Array<{ id: number; synopsis_chinese: string | null }>
+      >();
+
+    if (error) throw new Error(error.message);
+
     cached = new Map(
-      rows
+      (data ?? [])
         .filter(
-          (row): row is { id: number; synopsisChinese: string } =>
-            typeof row.synopsisChinese === "string" &&
-            row.synopsisChinese.trim().length > 0,
+          (row): row is { id: number; synopsis_chinese: string } =>
+            typeof row.synopsis_chinese === "string" &&
+            row.synopsis_chinese.trim().length > 0,
         )
-        .map((row) => [row.id, row.synopsisChinese]),
+        .map((row) => [row.id, row.synopsis_chinese]),
     );
   } catch (error) {
     console.warn(
-      "[translation] failed to read synopsis cache:",
+      "[translation] failed to read Supabase synopsis cache:",
       error instanceof Error ? error.message : String(error),
     );
   }

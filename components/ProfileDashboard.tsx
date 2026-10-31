@@ -34,12 +34,23 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
+function formatJoinedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
 function ProfileSkeleton() {
   return (
     <div aria-busy="true" aria-label="正在加载追番统计">
-      <div className="mt-10 space-y-4">
-        <div className="skeleton h-4 w-12 rounded" />
-        <div className="skeleton h-16 w-32 rounded-lg" />
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="skeleton h-[118px] rounded-xl" />
+        <div className="skeleton h-[118px] rounded-xl" />
       </div>
       <div className="mt-10 border-t border-neutral-200 pt-6">
         <div className="skeleton h-5 w-24 rounded" />
@@ -66,7 +77,13 @@ function ProfileSkeleton() {
   );
 }
 
-export function ProfileDashboard() {
+export function ProfileDashboard({
+  email,
+  createdAt,
+}: {
+  email: string;
+  createdAt: string;
+}) {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +145,18 @@ export function ProfileDashboard() {
         </button>
       </div>
 
+      <header className="mt-10 border-b border-neutral-200 pb-7">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
+          My BanLog
+        </p>
+        <h1 className="mt-3 break-all text-2xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-3xl">
+          {email}
+        </h1>
+        <p className="mt-2 text-xs text-neutral-400">
+          加入于 {formatJoinedAt(createdAt)}
+        </p>
+      </header>
+
       {status === "loading" ? (
         <ProfileSkeleton />
       ) : status === "error" || !stats ? (
@@ -135,9 +164,9 @@ export function ProfileDashboard() {
           role="alert"
           className="mt-10 rounded-xl border border-neutral-200 bg-white px-5 py-10 text-center"
         >
-          <h1 className="text-sm font-medium text-neutral-900">
+          <h2 className="text-sm font-medium text-neutral-900">
             暂时无法读取追番统计
-          </h1>
+          </h2>
           <p className="mt-2 text-sm leading-6 text-neutral-500">{error}</p>
           <button
             type="button"
@@ -151,18 +180,23 @@ export function ProfileDashboard() {
       ) : (
         <>
           <section
-            className="mt-10"
-            aria-label={`已追 ${stats.totalWatched} 部日本动画`}
+            className="mt-6 grid grid-cols-2 gap-3"
+            aria-label="追番数据概览"
           >
-            <p className="text-sm text-neutral-500">已追</p>
-            <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
-              <span className="text-6xl font-semibold tracking-[-0.06em] text-neutral-900 sm:text-7xl">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
+              <p className="text-[11px] text-neutral-400">总追番数</p>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-neutral-900 sm:text-4xl">
                 {formatCount(stats.totalWatched)}
-              </span>
-              <span className="text-base text-neutral-500">
-                部日本动画
-              </span>
-            </p>
+              </p>
+              <p className="mt-1 text-[11px] text-neutral-400">部动画</p>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
+              <p className="text-[11px] text-neutral-400">总集数</p>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-neutral-900 sm:text-4xl">
+                {formatCount(stats.totalEpisodes)}
+              </p>
+              <p className="mt-1 text-[11px] text-neutral-400">集</p>
+            </div>
           </section>
 
           <section className="mt-10 border-t border-neutral-200 pt-6">
@@ -201,9 +235,11 @@ export function ProfileDashboard() {
           <section className="mt-10 border-t border-neutral-200 pt-6">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium text-neutral-900">
-                最近标记
+                最近动态
               </h2>
-              <span className="text-[11px] text-neutral-400">最近 6 条</span>
+              <span className="text-[11px] text-neutral-400">
+                最近 {stats.recent.length} 条
+              </span>
             </div>
 
             {stats.recent.length > 0 ? (

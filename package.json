@@ -1,29 +1,24 @@
 {
   "name": "banlog",
-  "version": "2.2.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "BanLog：基于 AniList GraphQL 的日本动画追番记录",
+  "description": "BanLog：响应式日本动画追番 Web 应用（Supabase + AniList）",
   "engines": {
     "node": ">=20.9.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force",
-    "postinstall": "prisma generate && node scripts/sync-anilist-chinese.mjs",
-    "verify": "node scripts/verify.mjs",
-    "desktop:build": "npm run build && node scripts/build-desktop-app.mjs",
+    "postinstall": "node scripts/sync-anilist-chinese.mjs",
     "predev": "node scripts/sync-anilist-chinese.mjs",
     "prebuild": "node scripts/sync-anilist-chinese.mjs",
     "sync:chinese": "node scripts/sync-anilist-chinese.mjs --force",
     "mock:translate": "node scripts/mock-translate.mjs"
   },
   "dependencies": {
-    "@prisma/client": "6.19.3",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "next": "15.5.28",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -35,7 +30,6 @@
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
-    "prisma": "6.19.3",
     "tailwindcss": "3.4.19",
     "typescript": "^5.9.3"
   }

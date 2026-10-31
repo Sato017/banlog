@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { AniListRequestError } from "@/lib/anilist";
 import { fetchWeeklySchedule } from "@/lib/schedule";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import type {
   ApiErrorBody,
   WeeklyScheduleResponse,
@@ -36,6 +37,15 @@ export async function GET(): Promise<
   NextResponse<WeeklyScheduleResponse | ApiErrorBody>
 > {
   try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return jsonError(401, "请先登录。", "UNAUTHORIZED");
+    }
+
     const schedule = await fetchWeeklySchedule();
     return NextResponse.json(schedule, {
       status: 200,

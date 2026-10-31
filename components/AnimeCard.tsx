@@ -35,15 +35,15 @@ export function AnimeCard({
   );
 
   return (
-    <article className="flex gap-4 border-b border-neutral-200 py-5 first:pt-0 last:border-b-0 sm:gap-5">
-      <div className="relative aspect-[3/4] w-[104px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:w-[128px] md:w-[144px]">
+    <article className="flex h-full min-w-0 flex-col gap-2.5 sm:h-auto sm:flex-row sm:gap-5 sm:border-b sm:border-neutral-200 sm:py-5 sm:first:pt-0 sm:last:border-b-0">
+      <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:w-[128px] md:w-[144px]">
         <CoverImage src={anime.coverUrl} title={title} eager={eager} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-w-0 items-baseline gap-2 overflow-hidden">
+        <div className="flex min-w-0 flex-col items-start gap-0.5 overflow-hidden sm:flex-row sm:items-baseline sm:gap-2">
           <h3
-            className="min-w-0 truncate text-[15px] font-medium leading-6 text-neutral-900 sm:text-base"
+            className="line-clamp-2 min-w-0 text-[14px] font-medium leading-5 text-neutral-900 sm:line-clamp-none sm:truncate sm:text-base sm:leading-6"
             title={
               anime.titleNative && anime.titleChinese
                 ? `${anime.titleChinese} / ${anime.titleNative}`
@@ -54,7 +54,7 @@ export function AnimeCard({
           </h3>
           {showOriginalTitle ? (
             <p
-              className="min-w-0 truncate text-xs text-neutral-400"
+              className="line-clamp-1 min-w-0 text-[11px] text-neutral-400 sm:truncate sm:text-xs"
               lang="ja"
               title={originalTitle ?? undefined}
             >
@@ -64,7 +64,7 @@ export function AnimeCard({
         </div>
 
         <p
-          className={`mt-2 line-clamp-3 min-h-[3.9rem] text-[13px] leading-[1.55] ${
+          className={`mt-1.5 line-clamp-3 text-[12px] leading-5 sm:mt-2 sm:min-h-[3.9rem] sm:text-[13px] sm:leading-[1.55] ${
             anime.description || anime.synopsisChinese
               ? "text-neutral-600"
               : "text-neutral-400"
@@ -79,8 +79,10 @@ export function AnimeCard({
           {synopsis}
         </p>
 
-        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-          <p className="truncate text-[11px] text-neutral-400">{meta}</p>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 sm:pt-3">
+          <p className="min-w-0 truncate text-[10px] text-neutral-400 sm:text-[11px]">
+            {meta}
+          </p>
 
           <button
             type="button"
@@ -117,19 +119,19 @@ export function AnimeCard({
 
 export function AnimeCardSkeleton() {
   return (
-    <div className="flex gap-4 border-b border-neutral-200 py-5 first:pt-0 last:border-b-0 sm:gap-5">
-      <div className="skeleton aspect-[3/4] w-[104px] shrink-0 rounded-lg sm:w-[128px] md:w-[144px]" />
+    <div className="flex h-full min-w-0 flex-col gap-2.5 sm:h-auto sm:flex-row sm:gap-5 sm:border-b sm:border-neutral-200 sm:py-5 sm:first:pt-0 sm:last:border-b-0">
+      <div className="skeleton aspect-[3/4] w-full shrink-0 rounded-lg sm:w-[128px] md:w-[144px]" />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="skeleton h-5 w-2/3 rounded" />
-        <div className="mt-3 skeleton h-4 w-1/2 rounded" />
-        <div className="mt-3 space-y-2">
-          <div className="skeleton h-3 w-full rounded" />
-          <div className="skeleton h-3 w-11/12 rounded" />
-          <div className="skeleton h-3 w-3/4 rounded" />
+        <div className="skeleton h-4 w-11/12 rounded sm:h-5 sm:w-2/3" />
+        <div className="mt-2 skeleton h-3 w-1/2 rounded sm:mt-3 sm:h-4" />
+        <div className="mt-2 space-y-1.5 sm:mt-3 sm:space-y-2">
+          <div className="skeleton h-2.5 w-full rounded sm:h-3" />
+          <div className="skeleton h-2.5 w-11/12 rounded sm:h-3" />
+          <div className="skeleton h-2.5 w-3/4 rounded sm:h-3" />
         </div>
-        <div className="mt-auto flex items-center justify-between pt-3">
-          <div className="skeleton h-3 w-20 rounded" />
-          <div className="skeleton h-8 w-8 rounded-full" />
+        <div className="mt-auto flex items-center justify-between pt-2 sm:pt-3">
+          <div className="skeleton h-2.5 w-16 rounded sm:h-3 sm:w-20" />
+          <div className="skeleton h-7 w-7 rounded-full sm:h-8 sm:w-8" />
         </div>
       </div>
     </div>

@@ -14,29 +14,17 @@
 next-env.d.ts
 *.tsbuildinfo
 
-# local database & environment
-*.db
-/prisma/*.db-journal
-/prisma/*.db-shm
-/prisma/*.db-wal
+# environment
 .env
 .env.local
 .env.*.local
 
-# electron desktop build staging
-/.desktop-build/
-
-# release binaries and generated packages
-/release/
-/prisma/.desktop-seed.db
-/prisma/.desktop-seed.db-journal
-/prisma/.desktop-seed.db-wal
-/prisma/.desktop-seed.db-shm
+# vercel
+.vercel
 
 # local generated files
 *.log
 /data/*.tmp
-/screenshots/*.tmp
 
 # misc
 .DS_Store

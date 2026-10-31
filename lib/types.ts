@@ -1,6 +1,6 @@
 import type { PlotKey, SortKey } from "@/lib/filters";
 
-/** 列表 API 返回的单部动画，字段与 AnimeCache 对应。 */
+/** 列表 API 返回的单部动画，字段与 anime_cache 对应。 */
 export interface AnimeItem {
   id: number;
   titleNative: string | null;
@@ -32,7 +32,7 @@ export interface AnimeListResponse {
   plot: PlotKey;
   year: number | null;
   sort: SortKey;
-  /** AniList 失败但存在本地旧缓存时为 true。 */
+  /** AniList 失败但存在内存旧缓存时为 true。 */
   stale: boolean;
   warning?: string;
 }
@@ -61,6 +61,7 @@ export interface GenreStat {
 
 export interface StatsResponse {
   totalWatched: number;
+  totalEpisodes: number;
   byFormat: Record<string, number>;
   /** 出现频率最高的前 6 个 AniList 题材。 */
   genreDistribution: GenreStat[];
