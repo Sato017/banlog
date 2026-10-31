@@ -1,0 +1,39 @@
+// BanLog —— 单用户动画追番记录
+// 数据源：AniList GraphQL API；缓存 id 即 AniList media id。
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// AniList 列表结果的本地缓存。
+model AnimeCache {
+  id              Int           @id
+  titleNative     String?
+  titleRomaji     String?
+  titleChinese    String?
+  description     String?
+  synopsisChinese String?
+  coverUrl        String?
+  format          String?
+  episodes        Int?
+  seasonYear      Int?
+  updatedAt       DateTime      @updatedAt
+  watchRecords    WatchRecord[]
+}
+
+/// 单用户观看记录；表结构保持不变，animeId 现在是 AniList media id。
+model WatchRecord {
+  id        Int        @id @default(autoincrement())
+  userId    String     @default("local")
+  animeId   Int
+  status    String     @default("watched")
+  watchedAt DateTime   @default(now())
+  anime     AnimeCache @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([userId, status, watchedAt])
+}

@@ -1,0 +1,2 @@
+﻿Microsoft.Web.WebView2 1.0.4314.35
+Source: NuGet (net462 / win-x64 loader)
