@@ -19,6 +19,7 @@ model AnimeCache {
   synopsisChinese String?
   coverUrl        String?
   format          String?
+  genres          String?
   episodes        Int?
   seasonYear      Int?
   updatedAt       DateTime      @updatedAt

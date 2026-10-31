@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { CoverImage } from "@/components/CoverImage";
+import { GenreRadar } from "@/components/GenreRadar";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -194,6 +195,8 @@ export function ProfileDashboard() {
               </p>
             )}
           </section>
+
+          <GenreRadar distribution={stats.genreDistribution} />
 
           <section className="mt-10 border-t border-neutral-200 pt-6">
             <div className="flex items-center justify-between">

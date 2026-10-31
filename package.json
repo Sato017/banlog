@@ -1,6 +1,6 @@
 {
   "name": "banlog",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "BanLog：基于 AniList GraphQL 的日本动画追番记录",
   "engines": {
@@ -26,7 +26,8 @@
     "@prisma/client": "6.19.3",
     "next": "15.5.28",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -13,6 +13,7 @@ export async function upsertAnimeCache(items: AnimeItem[]): Promise<void> {
     items.map((item) => {
       const titleChinese = item.titleChinese?.trim() || null;
       const synopsisChinese = item.synopsisChinese?.trim() || null;
+      const genres = item.genres.length > 0 ? JSON.stringify(item.genres) : null;
 
       return prisma.animeCache.upsert({
         where: { id: item.id },
@@ -25,6 +26,7 @@ export async function upsertAnimeCache(items: AnimeItem[]): Promise<void> {
           synopsisChinese,
           coverUrl: item.coverUrl,
           format: item.format,
+          genres,
           episodes: item.episodes,
           seasonYear: item.seasonYear,
         },
@@ -39,6 +41,7 @@ export async function upsertAnimeCache(items: AnimeItem[]): Promise<void> {
           // 映射或翻译暂时不可用时，不要用 null 覆盖已经缓存的中文。
           ...(titleChinese ? { titleChinese } : {}),
           ...(synopsisChinese ? { synopsisChinese } : {}),
+          ...(genres ? { genres } : {}),
         },
       });
     }),

@@ -13,6 +13,14 @@ import {
   isSupportedGenre,
   type GenreValue,
 } from "@/lib/genres";
+import {
+  isPlotKey,
+  isSortKey,
+  isYearFilter,
+  DEFAULT_SORT,
+  type PlotKey,
+  type SortKey,
+} from "@/lib/filters";
 import { attachChineseSynopses } from "@/lib/translation";
 import type { AnimeListResponse, ApiErrorBody } from "@/lib/types";
 
@@ -84,6 +92,9 @@ export async function GET(
   const rawQuery = searchParams.get("q") ?? "";
   const rawFormat = (searchParams.get("format") ?? "").trim().toUpperCase();
   const rawGenre = (searchParams.get("genre") ?? "").trim();
+  const rawPlot = (searchParams.get("plot") ?? "all").trim();
+  const rawYear = (searchParams.get("year") ?? "all").trim();
+  const rawSort = (searchParams.get("sort") ?? DEFAULT_SORT).trim();
 
   const page = Number(rawPage);
   if (
@@ -102,6 +113,9 @@ export async function GET(
   const query = rawQuery.trim().slice(0, 100);
   let format: AnimeFormat | null = null;
   let genre: GenreValue | null = null;
+  let plot: PlotKey = "all";
+  let year: number | null = null;
+  let sort: SortKey = DEFAULT_SORT;
 
   if (rawFormat && rawFormat !== "ALL") {
     if (!isSupportedFormat(rawFormat)) {
@@ -125,8 +139,37 @@ export async function GET(
     genre = rawGenre;
   }
 
+  if (!isPlotKey(rawPlot)) {
+    return jsonError(400, "plot 参数不受支持。", "INVALID_PLOT");
+  }
+  plot = rawPlot;
+
+  if (rawYear !== "all") {
+    if (!isYearFilter(rawYear)) {
+      return jsonError(400, "year 参数无效。", "INVALID_YEAR");
+    }
+    const parsedYear = Number(rawYear);
+    if (parsedYear < 1900 || parsedYear > 2100) {
+      return jsonError(400, "year 参数超出范围。", "INVALID_YEAR");
+    }
+    year = parsedYear;
+  }
+
+  if (!isSortKey(rawSort)) {
+    return jsonError(400, "sort 参数不受支持。", "INVALID_SORT");
+  }
+  sort = rawSort;
+
   try {
-    const pageData = await fetchAniListPage(query, page, format, genre);
+    const pageData = await fetchAniListPage({
+      query,
+      page,
+      format,
+      genre,
+      plot,
+      year,
+      sort,
+    });
     const items = await attachChineseSynopses(pageData.items);
 
     // 列表请求返回什么就缓存什么，不逐张卡片请求详情。
@@ -145,6 +188,9 @@ export async function GET(
       query,
       format: pageData.format,
       genre: pageData.genre,
+      plot: pageData.plot,
+      year: pageData.year,
+      sort: pageData.sort,
       stale: pageData.stale,
       ...(pageData.stale
         ? {

@@ -3,7 +3,7 @@
  *
  * 前置：npm run build 已生成 .next/standalone（next.config.ts 已开启）。
  * 产物：
- *   release/BanLog-2.1.0-win64/
+ *   release/BanLog-2.2.0-win64/
  *     BanLog.exe
  *     runtime/node.exe
  *     server/...
@@ -25,7 +25,7 @@ import process from "node:process";
 
 const ROOT = process.cwd();
 const RELEASE_ROOT = path.join(ROOT, "release");
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 const DIST_NAME = `BanLog-${APP_VERSION}-win64`;
 const DIST_DIR = path.join(RELEASE_ROOT, DIST_NAME);
 const STANDALONE_DIR = path.join(ROOT, ".next", "standalone");

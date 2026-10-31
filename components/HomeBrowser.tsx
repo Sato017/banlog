@@ -18,15 +18,19 @@ import {
   getErrorMessage,
   requestJson,
 } from "@/lib/client-api";
+import {
+  DEFAULT_PLOT,
+  DEFAULT_SORT,
+  PLOT_FILTERS,
+  SORT_OPTIONS,
+  YEAR_OPTIONS,
+  isPlotKey,
+  isSortKey,
+  isYearFilter,
+  type PlotKey,
+  type SortKey,
+} from "@/lib/filters";
 import { getAnimeTitle } from "@/lib/format";
-import {
-  FORMAT_TABS,
-  type FormatTab,
-} from "@/lib/formats";
-import {
-  GENRE_OPTIONS,
-  type GenreValue,
-} from "@/lib/genres";
 import type { AnimeItem, AnimeListResponse } from "@/lib/types";
 
 const SKELETON_KEYS = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
@@ -36,6 +40,13 @@ type ToastMessage = {
   kind: "success" | "info" | "error";
   text: string;
 };
+
+interface UrlFilters {
+  plot: PlotKey;
+  year: string;
+  sort: SortKey;
+  query: string;
+}
 
 function isAbortError(error: unknown): boolean {
   return (
@@ -63,28 +74,56 @@ function mergeUniqueById(
   return [...current, ...incoming.filter((item) => !seen.has(item.id))];
 }
 
+function readFiltersFromLocation(): UrlFilters {
+  const params = new URLSearchParams(window.location.search);
+  const rawPlot = params.get("plot") ?? DEFAULT_PLOT;
+  const rawYear = params.get("year") ?? "all";
+  const rawSort = params.get("sort") ?? DEFAULT_SORT;
+
+  return {
+    plot: isPlotKey(rawPlot) ? rawPlot : DEFAULT_PLOT,
+    year: isYearFilter(rawYear) ? rawYear : "all",
+    sort: isSortKey(rawSort) ? rawSort : DEFAULT_SORT,
+    query: (params.get("q") ?? "").trim().slice(0, 100),
+  };
+}
+
 async function fetchAnimeList(
   query: string,
   page: number,
-  format: FormatTab,
-  genre: GenreValue | "",
+  plot: PlotKey,
+  year: string,
+  sort: SortKey,
   signal: AbortSignal,
 ): Promise<AnimeListResponse> {
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    plot,
+    year,
+    sort,
+  });
   if (query) params.set("q", query);
-  if (format !== "ALL") params.set("format", format);
-  if (genre) params.set("genre", genre);
 
   return requestJson<AnimeListResponse>(`/api/anime?${params.toString()}`, {
     signal,
   });
 }
 
+function filterTextClass(active: boolean): string {
+  return `whitespace-nowrap text-xs transition-colors ${
+    active
+      ? "font-medium text-[#00a1d6]"
+      : "text-neutral-500 hover:text-neutral-900"
+  }`;
+}
+
 export function HomeBrowser() {
   const [input, setInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [formatFilter, setFormatFilter] = useState<FormatTab>("ALL");
-  const [genreFilter, setGenreFilter] = useState<GenreValue | "">("");
+  const [plotFilter, setPlotFilter] = useState<PlotKey>(DEFAULT_PLOT);
+  const [yearFilter, setYearFilter] = useState("all");
+  const [sortFilter, setSortFilter] = useState<SortKey>(DEFAULT_SORT);
+  const [urlReady, setUrlReady] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<AnimeItem[]>([]);
@@ -105,6 +144,41 @@ export function HomeBrowser() {
   const loadMoreController = useRef<AbortController | null>(null);
   const pendingIdsRef = useRef<Set<number>>(new Set());
 
+  // 从 URL 恢复筛选；只执行一次，避免 SSR 与 hydration 不一致。
+  useEffect(() => {
+    const applyUrl = () => {
+      const next = readFiltersFromLocation();
+      setPlotFilter(next.plot);
+      setYearFilter(next.year);
+      setSortFilter(next.sort);
+      setInput(next.query);
+      setDebouncedQuery(next.query);
+    };
+
+    applyUrl();
+    setUrlReady(true);
+
+    window.addEventListener("popstate", applyUrl);
+    return () => window.removeEventListener("popstate", applyUrl);
+  }, []);
+
+  // 将筛选同步进 URL，刷新/分享/浏览器后退时都能恢复。
+  useEffect(() => {
+    if (!urlReady) return;
+
+    const params = new URLSearchParams({
+      plot: plotFilter,
+      year: yearFilter,
+      sort: sortFilter,
+    });
+    if (debouncedQuery) params.set("q", debouncedQuery);
+
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [debouncedQuery, plotFilter, sortFilter, urlReady, yearFilter]);
+
   // 500ms 防抖。
   useEffect(() => {
     const nextQuery = input.trim();
@@ -117,8 +191,10 @@ export function HomeBrowser() {
     return () => window.clearTimeout(timer);
   }, [input, debouncedQuery]);
 
-  // 搜索词、类型或题材变化时重新加载第 1 页。
+  // 任一筛选或搜索词变化，重新加载第 1 页。
   useEffect(() => {
+    if (!urlReady) return;
+
     const controller = new AbortController();
     const sequence = ++requestSequence.current;
     loadMoreController.current?.abort();
@@ -141,8 +217,9 @@ export function HomeBrowser() {
         const data = await fetchAnimeList(
           debouncedQuery,
           1,
-          formatFilter,
-          genreFilter,
+          plotFilter,
+          yearFilter,
+          sortFilter,
           controller.signal,
         );
 
@@ -176,7 +253,7 @@ export function HomeBrowser() {
     })();
 
     return () => controller.abort();
-  }, [debouncedQuery, formatFilter, genreFilter, reloadToken]);
+  }, [debouncedQuery, plotFilter, reloadToken, sortFilter, urlReady, yearFilter]);
 
   useEffect(() => {
     if (!toast) return;
@@ -212,16 +289,19 @@ export function HomeBrowser() {
   }
 
   function resetFilters() {
+    const alreadyDefault =
+      plotFilter === DEFAULT_PLOT &&
+      yearFilter === "all" &&
+      sortFilter === DEFAULT_SORT &&
+      debouncedQuery === "";
+
     setInput("");
     setDebouncedQuery("");
-    setFormatFilter("ALL");
-    setGenreFilter("");
+    setPlotFilter(DEFAULT_PLOT);
+    setYearFilter("all");
+    setSortFilter(DEFAULT_SORT);
 
-    if (
-      debouncedQuery === "" &&
-      formatFilter === "ALL" &&
-      genreFilter === ""
-    ) {
+    if (alreadyDefault) {
       setReloadToken((value) => value + 1);
     }
   }
@@ -287,8 +367,9 @@ export function HomeBrowser() {
       const data = await fetchAnimeList(
         debouncedQuery,
         page + 1,
-        formatFilter,
-        genreFilter,
+        plotFilter,
+        yearFilter,
+        sortFilter,
         controller.signal,
       );
 
@@ -318,8 +399,9 @@ export function HomeBrowser() {
 
   const hasActiveFilter =
     debouncedQuery.length > 0 ||
-    formatFilter !== "ALL" ||
-    genreFilter !== "";
+    plotFilter !== DEFAULT_PLOT ||
+    yearFilter !== "all" ||
+    sortFilter !== DEFAULT_SORT;
 
   return (
     <>
@@ -367,50 +449,75 @@ export function HomeBrowser() {
           </button>
         </form>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div
-            className="flex flex-wrap items-center gap-2"
-            role="group"
-            aria-label="按作品类型筛选"
-          >
-            {FORMAT_TABS.map((tab) => {
-              const active = formatFilter === tab.value;
-              return (
+        <div className="mt-5 space-y-3 border-b border-neutral-200 pb-5">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className="w-12 shrink-0 text-xs text-neutral-400">
+              按剧情
+            </span>
+            <div
+              className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-2"
+              role="group"
+              aria-label="按剧情筛选"
+            >
+              {PLOT_FILTERS.map((option) => (
                 <button
-                  key={tab.value}
+                  key={option.key}
                   type="button"
-                  onClick={() => setFormatFilter(tab.value)}
-                  aria-pressed={active}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                    active
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:text-neutral-900"
-                  }`}
+                  onClick={() => setPlotFilter(option.key)}
+                  aria-pressed={plotFilter === option.key}
+                  className={filterTextClass(plotFilter === option.key)}
                 >
-                  {tab.label}
+                  {option.label}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
 
-          <label htmlFor="genre-filter" className="sr-only">
-            按题材筛选
-          </label>
-          <select
-            id="genre-filter"
-            value={genreFilter}
-            onChange={(event) =>
-              setGenreFilter(event.target.value as GenreValue | "")
-            }
-            className="h-[30px] cursor-pointer rounded-full border border-neutral-200 bg-white px-3 text-xs text-neutral-500 outline-none transition-colors hover:border-neutral-300 hover:text-neutral-900 focus:border-neutral-400 sm:ml-auto"
-          >
-            <option value="">全部题材</option>
-            {GENRE_OPTIONS.map((genre) => (
-              <option key={genre.value} value={genre.value}>
-                {genre.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className="w-12 shrink-0 text-xs text-neutral-400">
+              按年份
+            </span>
+            <div
+              className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-2"
+              role="group"
+              aria-label="按年份筛选"
+            >
+              {YEAR_OPTIONS.map((year) => (
+                <button
+                  key={year}
+                  type="button"
+                  onClick={() => setYearFilter(year)}
+                  aria-pressed={yearFilter === year}
+                  className={filterTextClass(yearFilter === year)}
+                >
+                  {year === "all" ? "全部" : year}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className="w-12 shrink-0 text-xs text-neutral-400">
+              按排序
+            </span>
+            <div
+              className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-2"
+              role="group"
+              aria-label="按排序筛选"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setSortFilter(option.key)}
+                  aria-pressed={sortFilter === option.key}
+                  className={filterTextClass(sortFilter === option.key)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -468,7 +575,7 @@ export function HomeBrowser() {
               没有找到相关动画
             </p>
             <p className="mt-2 text-sm text-neutral-500">
-              换个关键词、作品类型或题材试试。
+              换个剧情、年份或排序条件试试。
             </p>
             {hasActiveFilter ? (
               <button

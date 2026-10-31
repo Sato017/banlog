@@ -19,8 +19,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyCompany("BanLog")]
 [assembly: AssemblyProduct("BanLog")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
-[assembly: AssemblyVersion("2.1.0.0")]
-[assembly: AssemblyFileVersion("2.1.0.0")]
+[assembly: AssemblyVersion("2.2.0.0")]
+[assembly: AssemblyFileVersion("2.2.0.0")]
 
 namespace BanLogLauncher
 {

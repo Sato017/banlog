@@ -28,3 +28,28 @@ const SUPPORTED_GENRES = new Set<string>(
 export function isSupportedGenre(value: string): value is GenreValue {
   return SUPPORTED_GENRES.has(value);
 }
+
+const GENRE_LABELS: Readonly<Record<string, string>> = {
+  Action: "动作",
+  Adventure: "冒险",
+  Comedy: "喜剧",
+  Drama: "剧情",
+  Fantasy: "奇幻",
+  Horror: "恐怖",
+  "Mahou Shoujo": "魔法少女",
+  Mecha: "机甲",
+  Music: "音乐",
+  Mystery: "悬疑",
+  Psychological: "心理",
+  Romance: "恋爱",
+  "Sci-Fi": "科幻",
+  "Slice of Life": "日常",
+  Sports: "竞技",
+  Supernatural: "超自然",
+  Thriller: "惊悚",
+};
+
+/** 雷达图/统计使用的短中文标签。 */
+export function getGenreLabel(genre: string): string {
+  return GENRE_LABELS[genre] ?? genre;
+}

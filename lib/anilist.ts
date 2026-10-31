@@ -1,5 +1,11 @@
 import { PAGE_SIZE } from "@/lib/constants";
 import { getChineseTitle } from "@/lib/chinese-titles";
+import {
+  getPlotFilter,
+  getSortOption,
+  type PlotKey,
+  type SortKey,
+} from "@/lib/filters";
 import type { AnimeFormat } from "@/lib/formats";
 import type { AnimeItem } from "@/lib/types";
 
@@ -86,7 +92,21 @@ export interface AniListPageResult {
   totalItems: number;
   format: AnimeFormat | null;
   genre: string | null;
+  plot: PlotKey;
+  year: number | null;
+  sort: SortKey;
   stale: boolean;
+}
+
+export interface FetchAnimePageInput {
+  query: string;
+  page: number;
+  format: AnimeFormat | null;
+  plot: PlotKey;
+  year: number | null;
+  sort: SortKey;
+  /** 保留旧接口的 genre 参数，首页新筛选不使用。 */
+  genre?: string | null;
 }
 
 interface CacheEntry {
@@ -125,6 +145,10 @@ query AnimePage(
   $search: String
   $format: MediaFormat
   $genre: String
+  $genres: [String]
+  $tags: [String]
+  $seasonYear: Int
+  $sort: [MediaSort]
 ) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
@@ -138,7 +162,10 @@ query AnimePage(
       search: $search
       format: $format
       genre: $genre
-      sort: POPULARITY_DESC
+      genre_in: $genres
+      tag_in: $tags
+      seasonYear: $seasonYear
+      sort: $sort
     ) {
       id
       title {
@@ -271,18 +298,21 @@ function enqueueRequest<T>(task: () => Promise<T>): Promise<T> {
 }
 
 async function fetchOnce(
-  query: string,
-  page: number,
-  format: AnimeFormat | null,
-  genre: string | null,
+  input: FetchAnimePageInput,
 ): Promise<Response> {
-  const variables: Record<string, string | number> = {
-    page,
+  const plot = getPlotFilter(input.plot);
+  const variables: Record<string, string | number | string[]> = {
+    page: input.page,
     perPage: PAGE_SIZE,
+    sort: [getSortOption(input.sort).value],
   };
-  if (query) variables.search = query;
-  if (format) variables.format = format;
-  if (genre) variables.genre = genre;
+
+  if (input.query) variables.search = input.query;
+  if (input.format) variables.format = input.format;
+  if (input.genre) variables.genre = input.genre;
+  if (plot.genres.length > 0) variables.genres = [...plot.genres];
+  if (plot.tags.length > 0) variables.tags = [...plot.tags];
+  if (input.year) variables.seasonYear = input.year;
 
   return enqueueRequest(() =>
     fetch(endpoint(), {
@@ -290,7 +320,7 @@ async function fetchOnce(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "BanLog/2.1 (local anime watch log)",
+        "User-Agent": "BanLog/2.2 (local anime watch log)",
       },
       body: JSON.stringify({ query: ANILIST_QUERY, variables }),
       cache: "no-store",
@@ -307,16 +337,13 @@ function isTimeoutError(error: unknown): boolean {
 }
 
 async function requestAniListPage(
-  query: string,
-  page: number,
-  format: AnimeFormat | null,
-  genre: string | null,
+  input: FetchAnimePageInput,
 ): Promise<AniListPageResult> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     let response: Response;
 
     try {
-      response = await fetchOnce(query, page, format, genre);
+      response = await fetchOnce(input);
     } catch (error) {
       const timedOut = isTimeoutError(error);
       if (attempt < MAX_ATTEMPTS && !timedOut) {
@@ -391,7 +418,7 @@ async function requestAniListPage(
       .filter((item): item is AnimeItem => item !== null);
 
     const pageInfo = pageData.pageInfo;
-    const currentPage = toPositiveInteger(pageInfo?.currentPage) ?? page;
+    const currentPage = toPositiveInteger(pageInfo?.currentPage) ?? input.page;
     const lastPage = toPositiveInteger(pageInfo?.lastPage) ?? currentPage;
     const total = toPositiveInteger(pageInfo?.total) ?? items.length;
     const hasNextPage =
@@ -405,8 +432,11 @@ async function requestAniListPage(
       hasNextPage,
       totalPages: lastPage,
       totalItems: total,
-      format,
-      genre,
+      format: input.format,
+      genre: input.genre ?? null,
+      plot: input.plot,
+      year: input.year,
+      sort: input.sort,
       stale: false,
     };
   }
@@ -418,13 +448,22 @@ async function requestAniListPage(
  * 10 分钟内存缓存 + 同 key in-flight 合并 + 24 小时 stale 降级。
  */
 export async function fetchAniListPage(
-  query: string,
-  page: number,
-  format: AnimeFormat | null,
-  genre: string | null,
+  input: FetchAnimePageInput,
 ): Promise<AniListPageResult> {
-  const normalizedQuery = query.trim();
-  const cacheKey = `${page}|${format ?? "ALL"}|${genre ?? "ALL"}|${normalizedQuery.toLocaleLowerCase()}`;
+  const normalizedQuery = input.query.trim();
+  const pageInput: FetchAnimePageInput = {
+    ...input,
+    query: normalizedQuery,
+  };
+  const cacheKey = [
+    input.page,
+    input.format ?? "ALL",
+    input.genre ?? "ALL",
+    input.plot,
+    input.year ?? "ALL",
+    input.sort,
+    normalizedQuery.toLocaleLowerCase(),
+  ].join("|");
   const now = Date.now();
 
   const fresh = state.freshCache.get(cacheKey);
@@ -437,12 +476,7 @@ export async function fetchAniListPage(
 
   const promise = (async (): Promise<AniListPageResult> => {
     try {
-      const result = await requestAniListPage(
-        normalizedQuery,
-        page,
-        format,
-        genre,
-      );
+      const result = await requestAniListPage(pageInput);
       const savedAt = Date.now();
       const entry: CacheEntry = {
         expiresAt: savedAt + FRESH_CACHE_TTL_MS,
